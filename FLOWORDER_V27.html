@@ -826,7 +826,7 @@ function parseDataFlowRow(r,idx){
   const statut=AUFART_MAP[aufArt]||aufArt;
   const poidsRaw=r['[TatsGew]'];
   const poids=(poidsRaw&&Number(poidsRaw)>0)?Number(poidsRaw)/1000:null;
-  return{_id:idx,sourceRaw:r,date:d,dateFin:dFin,dateKey:dateKey(d),client,tour:str(r['[TourNr]']),statut,remorque,refTr:str(r['[LiefNr]']),refSAP:'',villeCHG:str(r['[AbgOrt]']),paysLIV:str(r['[EmgLKZ]']),cpLIV:str(r['[EmgPLZ]']),villeLIV:str(r['[EmgOrt]']),longueur:divK(r['[LMAnz]']),poids,dept:str(r['[HAbtID]']),carrier:str(r['[FrachtfuehrerName1]']),plaque:str(r['[KfzZugID]']),affectation,isWeekend:isWeekend(d),isHoliday:isHoliday(d),isOffDay:isWeekend(d)||isHoliday(d)};
+  return{_id:idx,sourceRaw:r,date:d,dateFin:dFin,dateKey:dateKey(d),client,tour:str(r['[TourNr]']),statut,remorque,refTr:str(r['[LiefNr]']),refSAP:'',villeCHG:str(r['[AbgOrt]']),paysLIV:str(r['[EmgLKZ]']),cpLIV:str(r['[EmgPLZ]']),villeLIV:str(r['[EmgOrt]']),longueur:(function(v){if(v===null||v===undefined||v==='')return null;const n=parseFloat(String(v).replace(',','.'));return(isNaN(n)||n===0)?null:Math.round(n*1000)/1000;})(r['[LMAnz]']),poids,dept:str(r['[HAbtID]']),carrier:str(r['[FrachtfuehrerName1]']),plaque:str(r['[KfzZugID]']),affectation,isWeekend:isWeekend(d),isHoliday:isHoliday(d),isOffDay:isWeekend(d)||isHoliday(d)};
 }
 
 async function loadDataFlow(){
