@@ -836,6 +836,7 @@ async function loadDataFlow(){
   try{
     const token=await getToken();
     btn.textContent='⚡ Chargement…';
+    loadFleetAvailability(); // en parallèle, ne bloque pas le DataFlow principal
 
     const sitePath=encodeURIComponent(GRAPH_SITE_PATH).replace(/%2F/g,'/');
     const cleanFilePath=GRAPH_FILE_PATH.replace(/^\/+/, '');
