@@ -1286,16 +1286,70 @@ function applyFilters(){
 
 /* ── KPIs ── */
 function updateKPIs(rows,days){
-  const c=new Set(rows.map(r=>r.client).filter(Boolean));
   const k=new Set(rows.map(r=>r.carrier).filter(Boolean));
   setText('k-total',     rows.length);
   setText('k-total-sub', `${days.length} jour(s) · ${rows.filter(r=>r.refSAP).length} réf. SAP`);
-  setText('k-clients',     c.size||'—');
-  setText('k-clients-sub', [...c].slice(0,4).join(' · ')||'—');
   setText('k-carriers',     k.size||'—');
   setText('k-carriers-sub', [...k].slice(0,4).join(' · ')||'—');
 }
 function setText(id,v){ document.getElementById(id).textContent=v; }
+
+/* Camions disponibles - lecture Lorang Fleet (winsped_data.json + vehicles_data.json) */
+const FLOWFLEET_SITE_ID = 'luxportlu.sharepoint.com,c08e049e-f0db-4e60-81f2-8335088ecb13';
+
+async function loadFleetAvailability(){
+  setText('k-clients', '...');
+  setText('k-clients-sub', 'Chargement...');
+  try{
+    const token = await getToken();
+    const headers = { Authorization: 'Bearer ' + token };
+    const sitePath = encodeURIComponent(GRAPH_SITE_PATH).replace(/%2F/g,'/');
+    let winspedResp = await fetch(`https://graph.microsoft.com/v1.0/sites/${GRAPH_HOST}:${sitePath}:/drive/root:/Flotte/winsped_data.json:/content`, { headers });
+    if (!winspedResp.ok) {
+      winspedResp = await fetch(`https://graph.microsoft.com/v1.0/sites/${GRAPH_HOST}:${sitePath}:/drive/root:/Documents/Flotte/winsped_data.json:/content`, { headers });
+    }
+    if (!winspedResp.ok) throw new Error('winsped_data.json HTTP ' + winspedResp.status);
+    const winspedJson = await winspedResp.json();
+    const tours = winspedJson.value || winspedJson.rows || winspedJson || [];
+
+    const driveResp = await fetch(`https://graph.microsoft.com/v1.0/sites/${FLOWFLEET_SITE_ID}/drive`, { headers });
+    if (!driveResp.ok) throw new Error('FLOWFLEET drive HTTP ' + driveResp.status);
+    const driveData = await driveResp.json();
+    const vehMetaResp = await fetch(`https://graph.microsoft.com/v1.0/drives/${driveData.id}/root:/Documents/vehicles_data.json`, { headers });
+    if (!vehMetaResp.ok) throw new Error('vehicles_data.json HTTP ' + vehMetaResp.status);
+    const vehMeta = await vehMetaResp.json();
+    const vehContentResp = await fetch(vehMeta['@microsoft.graph.downloadUrl']);
+    const vehJson = await vehContentResp.json();
+    let vehRows = vehJson.vehicles || vehJson.rows || vehJson || [];
+    if (Array.isArray(vehRows) && vehRows.length && Array.isArray(vehRows[0])) {
+      const cols = ['PolKz','KatKurz','KreNr','FahName','AnhPolKz','MaGrp','BEZ'];
+      vehRows = vehRows.map(r => { const o={}; cols.forEach((c,i)=>o[c]=r[i]!==undefined?r[i]:''); return o; });
+    }
+    const allTractors = vehRows.filter(r => String(r.KatKurz||'').trim() === 'SZM').map(r => String(r.PolKz||'').trim().toUpperCase()).filter(Boolean);
+    const totalTractors = new Set(allTractors);
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const busyTractors = new Set();
+    tours.forEach(t => {
+      const tractor = String(t.KfzZugID || t.tractor || '').trim().toUpperCase();
+      if (!tractor) return;
+      const dateStr = t.EntVonDat || t.BelVonDat || t.deliveryDate;
+      if (!dateStr) return;
+      const d = new Date(dateStr);
+      if (isNaN(d)) return;
+      d.setHours(0,0,0,0);
+      if (d >= today) busyTractors.add(tractor);
+    });
+
+    const available = [...totalTractors].filter(t => !busyTractors.has(t));
+    setText('k-clients', available.length);
+    setText('k-clients-sub', `sur ${totalTractors.size} tracteur(s) au total`);
+  } catch(e){
+    console.warn('[FleetAvailability]', e.message);
+    setText('k-clients', '-');
+    setText('k-clients-sub', 'Indisponible');
+  }
+}
 
 /* ── RENDER GROUPS ── */
 function renderGroups(rows,days){
